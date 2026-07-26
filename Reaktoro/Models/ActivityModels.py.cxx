@@ -24,6 +24,7 @@ void exportActivityModelDavies(py::module& m);
 void exportActivityModelDrummond(py::module& m);
 void exportActivityModelDuanSun(py::module& m);
 void exportActivityModelExtendedUNIQUAC(py::module& m);
+void exportActivityModelElectrolyteNRTL(py::module& m);
 void exportActivityModelHKF(py::module& m);
 void exportActivityModelIdealAqueous(py::module& m);
 void exportActivityModelIdealGas(py::module& m);
@@ -54,6 +55,7 @@ void exportActivityModels(py::module& m)
     exportActivityModelDrummond(m);
     exportActivityModelDuanSun(m);
     exportActivityModelExtendedUNIQUAC(m);
+    exportActivityModelElectrolyteNRTL(m);
     exportActivityModelHKF(m);
     exportActivityModelIdealAqueous(m);
     exportActivityModelIdealGas(m);

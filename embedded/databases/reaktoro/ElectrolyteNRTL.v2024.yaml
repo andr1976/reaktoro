@@ -1,0 +1,244 @@
+# Species + standard states for the ElectrolyteNRTL (AMP-PZ-CO2-H2O) model.
+# Standard states: base = literature; ions/zwitterion/carbamates = Yi et al. DGAQFM/DHAQFM;
+# neutral PZ/AMP calibrated to pKa. Cp constant (a=Cp, b=c=0). Gr,Hr kJ/mol; Cp J/mol/K.
+Species:
+- Name: H2O
+  Formula: H2O
+  Elements: 2:H 1:O
+  Charge: 0.0
+  AggregateState: Aqueous
+  StandardThermoModel:
+    ExtendedUNIQUAC:
+      Gr: -237.13
+      Hr: -285.83
+      Cp: 75.29
+      a: 75.29
+      b: 0
+      c: 0
+      alpha: 0
+      beta: 0
+- Name: CO2
+  Formula: CO2
+  Elements: 1:C 2:O
+  Charge: 0.0
+  AggregateState: Aqueous
+  StandardThermoModel:
+    ExtendedUNIQUAC:
+      Gr: -385.98
+      Hr: -413.8
+      Cp: 243.0
+      a: 243.0
+      b: 0
+      c: 0
+      alpha: 0
+      beta: 0
+- Name: PZ
+  Formula: C4H10N2
+  Elements: 4:C 10:H 2:N
+  Charge: 0.0
+  AggregateState: Aqueous
+  StandardThermoModel:
+    ExtendedUNIQUAC:
+      Gr: 133.734
+      Hr: -70.4
+      Cp: 300.0
+      a: 300.0
+      b: 0
+      c: 0
+      alpha: 0
+      beta: 0
+- Name: AMP
+  Formula: C4H11NO
+  Elements: 4:C 11:H 1:N 1:O
+  Charge: 0.0
+  AggregateState: Aqueous
+  StandardThermoModel:
+    ExtendedUNIQUAC:
+      Gr: -113.095
+      Hr: -346.5
+      Cp: 340.0
+      a: 340.0
+      b: 0
+      c: 0
+      alpha: 0
+      beta: 0
+- Name: PZCOOH
+  Formula: C5H10N2O2
+  Elements: 5:C 10:H 2:N 2:O
+  Charge: 0.0
+  AggregateState: Aqueous
+  StandardThermoModel:
+    ExtendedUNIQUAC:
+      Gr: -278.596
+      Hr: -535.204
+      Cp: 277.75
+      a: 277.75
+      b: 0
+      c: 0
+      alpha: 0
+      beta: 0
+- Name: PZH+
+  Formula: C4H11N2+
+  Elements: 4:C 11:H 2:N
+  Charge: 1.0
+  AggregateState: Aqueous
+  StandardThermoModel:
+    ExtendedUNIQUAC:
+      Gr: 78.2
+      Hr: -115.0
+      Cp: 160.0
+      a: 160.0
+      b: 0
+      c: 0
+      alpha: 0
+      beta: 0
+- Name: PZH2+2
+  Formula: C4H12N2+2
+  Elements: 4:C 12:H 2:N
+  Charge: 2.0
+  AggregateState: Aqueous
+  StandardThermoModel:
+    ExtendedUNIQUAC:
+      Gr: 40.368
+      Hr: -143.89
+      Cp: 160.0
+      a: 160.0
+      b: 0
+      c: 0
+      alpha: 0
+      beta: 0
+- Name: AMPH+
+  Formula: C4H12NO+
+  Elements: 4:C 12:H 1:N 1:O
+  Charge: 1.0
+  AggregateState: Aqueous
+  StandardThermoModel:
+    ExtendedUNIQUAC:
+      Gr: -168.4
+      Hr: -397.0
+      Cp: 360.0
+      a: 360.0
+      b: 0
+      c: 0
+      alpha: 0
+      beta: 0
+- Name: PZCOO-
+  Formula: C5H9N2O2-
+  Elements: 5:C 9:H 2:N 2:O
+  Charge: -1.0
+  AggregateState: Aqueous
+  StandardThermoModel:
+    ExtendedUNIQUAC:
+      Gr: -225.605
+      Hr: -498.09
+      Cp: -3.87
+      a: -3.87
+      b: 0
+      c: 0
+      alpha: 0
+      beta: 0
+- Name: PZ(COO)2-2
+  Formula: C6H8N2O4-2
+  Elements: 6:C 8:H 2:N 4:O
+  Charge: -2.0
+  AggregateState: Aqueous
+  StandardThermoModel:
+    ExtendedUNIQUAC:
+      Gr: -573.728
+      Hr: -936.851
+      Cp: 1.95
+      a: 1.95
+      b: 0
+      c: 0
+      alpha: 0
+      beta: 0
+- Name: H3O+
+  Formula: H3O+
+  Elements: 3:H 1:O
+  Charge: 1.0
+  AggregateState: Aqueous
+  StandardThermoModel:
+    ExtendedUNIQUAC:
+      Gr: -237.13
+      Hr: -285.83
+      Cp: 75.29
+      a: 75.29
+      b: 0
+      c: 0
+      alpha: 0
+      beta: 0
+- Name: OH-
+  Formula: OH-
+  Elements: 1:O 1:H
+  Charge: -1.0
+  AggregateState: Aqueous
+  StandardThermoModel:
+    ExtendedUNIQUAC:
+      Gr: -157.297
+      Hr: -230.024
+      Cp: -148.5
+      a: -148.5
+      b: 0
+      c: 0
+      alpha: 0
+      beta: 0
+- Name: HCO3-
+  Formula: HCO3-
+  Elements: 1:H 1:C 3:O
+  Charge: -1.0
+  AggregateState: Aqueous
+  StandardThermoModel:
+    ExtendedUNIQUAC:
+      Gr: -586.77
+      Hr: -691.99
+      Cp: -29.26
+      a: -29.26
+      b: 0
+      c: 0
+      alpha: 0
+      beta: 0
+- Name: CO3-2
+  Formula: CO3-2
+  Elements: 1:C 3:O
+  Charge: -2.0
+  AggregateState: Aqueous
+  StandardThermoModel:
+    ExtendedUNIQUAC:
+      Gr: -527.81
+      Hr: -677.14
+      Cp: -397.1
+      a: -397.1
+      b: 0
+      c: 0
+      alpha: 0
+      beta: 0
+- Name: CO2(g)
+  Formula: CO2
+  Elements: 1:C 2:O
+  Charge: 0.0
+  AggregateState: Gas
+  StandardThermoModel:
+    ExtendedUNIQUAC:
+      Gr: -394.36
+      Hr: -393.51
+      Cp: 37.1
+      a: 37.1
+      b: 0
+      c: 0
+      alpha: 0
+      beta: 0
+- Name: H2O(g)
+  Formula: H2O
+  Elements: 2:H 1:O
+  Charge: 0.0
+  AggregateState: Gas
+  StandardThermoModel:
+    ExtendedUNIQUAC:
+      Gr: -228.57
+      Hr: -241.82
+      Cp: 33.6
+      a: 33.6
+      b: 0
+      c: 0
+      alpha: 0
+      beta: 0

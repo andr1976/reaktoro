@@ -204,4 +204,40 @@ REAKTORO_DATA_DECODE_DEFINE(ActivityModelParamsExtendedUNIQUAC)
     }
 }
 
+REAKTORO_DATA_ENCODE_DEFINE(ActivityModelParamsElectrolyteNRTL)
+{
+    for(auto const& [i, j, c] : obj.nrtl)      data["nrtl"][i][j] = c;
+    for(auto const& [c, a, b, v] : obj.gmelc)  data["gmelc"][c][a][b] = v;
+    for(auto const& [e1, e2, v] : obj.gmelcee) data["gmelcee"][e1][e2] = v;
+    for(auto const& [s, v] : obj.dielectric)   data["dielectric"][s] = v;
+    for(auto const& [s, r] : obj.bornradius)   data["bornradius"][s] = r.val();
+}
+
+REAKTORO_DATA_DECODE_DEFINE(ActivityModelParamsElectrolyteNRTL)
+{
+    if(data.exists("nrtl"))
+        for(auto const& [i, child] : data["nrtl"].asDict())
+            for(auto const& [j, vals] : child.asDict())
+                obj.nrtl.push_back(Tuple<String, String, Vec<real>>{ i, j, vals });
+
+    if(data.exists("gmelc"))
+        for(auto const& [c, ca] : data["gmelc"].asDict())
+            for(auto const& [a, cm] : ca.asDict())
+                for(auto const& [b, vals] : cm.asDict())
+                    obj.gmelc.push_back(Tuple<String, String, String, Vec<real>>{ c, a, b, vals });
+
+    if(data.exists("gmelcee"))
+        for(auto const& [e1, child] : data["gmelcee"].asDict())
+            for(auto const& [e2, vals] : child.asDict())
+                obj.gmelcee.push_back(Tuple<String, String, Vec<real>>{ e1, e2, vals });
+
+    if(data.exists("dielectric"))
+        for(auto const& [s, vals] : data["dielectric"].asDict())
+            obj.dielectric.push_back(Tuple<String, Vec<real>>{ s, vals });
+
+    if(data.exists("bornradius"))
+        for(auto const& [s, v] : data["bornradius"].asDict())
+            obj.bornradius.push_back(Tuple<String, real>{ s, v.asFloat() });
+}
+
 } // namespace Reaktoro
