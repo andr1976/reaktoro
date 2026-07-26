@@ -24,10 +24,10 @@ Species:
   AggregateState: Aqueous
   StandardThermoModel:
     ExtendedUNIQUAC:
-      Gr: -385.98
-      Hr: -413.8
-      Cp: 243.0
-      a: 243.0
+      Gr: -385.8
+      Hr: -412.16
+      Cp: 180.7
+      a: 180.7
       b: 0
       c: 0
       alpha: 0
@@ -40,7 +40,7 @@ Species:
   StandardThermoModel:
     ExtendedUNIQUAC:
       Gr: 133.734
-      Hr: -70.4
+      Hr: -74.6
       Cp: 300.0
       a: 300.0
       b: 0
@@ -55,7 +55,7 @@ Species:
   StandardThermoModel:
     ExtendedUNIQUAC:
       Gr: -113.095
-      Hr: -346.5
+      Hr: -343.0
       Cp: 340.0
       a: 340.0
       b: 0
