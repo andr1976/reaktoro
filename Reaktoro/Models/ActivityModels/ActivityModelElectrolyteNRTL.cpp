@@ -252,15 +252,22 @@ auto createActivityModelElectrolyteNRTL(SpeciesList const& species, ActivityMode
         // ln gamma^lc at current composition (symmetric)
         ArrayXr lcg = lc(X);
 
-        // Unsymmetric reference for ions & aqueous solutes: ln gamma_i^inf at ratio-preserving trace in water
-        real nonw = 0.0; for(auto i = 0; i < N; ++i) if(i != (int)iw) nonw += x[i];
+        // SOLVENTS = water + molecular solvents carrying CPDIEC dielectric data (i.e. AMP/PZ);
+        // SOLUTES = Henry molecules (CO2), ions, carbamate. (Same test the Born term uses.)
+        auto const isSolvent = [&](int i){ return (i == (int)iw) || diel.count(i) > 0; };
+
+        // Unsymmetric reference for SOLUTES: ln gamma_i^inf at infinite dilution in the MIXED SOLVENT
+        // (water + amines). Send only the SOLUTES to trace while KEEPING the solvent composition, so the
+        // reference is the standard Aspen mixed-solvent infinite dilution — NOT the earlier "ratio-
+        // preserving trace of all non-water", which also diluted the amine solvents and made lcinf
+        // loading-dependent (so no constant standard-state shift could undo it).
+        real solutesum = 0.0; for(auto i = 0; i < N; ++i) if(!isSolvent(i)) solutesum += x[i];
         ArrayXr lcinf = ArrayXr::Zero(N);
-        if(nonw > 0.0)
         {
-            real s = 1e-9/nonw;
+            real s = solutesum > 0.0 ? real(1e-9)/solutesum : real(0.0);
             ArrayXr xref(N); real sumref = 0.0;
-            for(auto i = 0; i < N; ++i){ xref[i] = (i==(int)iw) ? real(0.0) : x[i]*s; sumref += xref[i]; }
-            xref[iw] = 1.0 - sumref;
+            for(auto i = 0; i < N; ++i){ xref[i] = isSolvent(i) ? x[i] : x[i]*s; sumref += xref[i]; }
+            for(auto i = 0; i < N; ++i) xref[i] /= sumref;               // renormalize; solvent ratios preserved
             ArrayXr Xref(N);
             for(auto i = 0; i < N; ++i) Xref[i] = (z[i]!=0.0 ? std::abs(z[i]) : 1.0) * xref[i];
             lcinf = lc(Xref);
@@ -295,17 +302,19 @@ auto createActivityModelElectrolyteNRTL(SpeciesList const& species, ActivityMode
         }
 
         // --- combine ---
-        // water: symmetric lc + PDH; solutes: unsymmetric lc (lcg - lcinf) + PDH + Born, molal-scale (+ln_xw)
+        // SOLVENTS (water + AMP/PZ): symmetric lc + PDH + Born (Born=0 for neutral), MOLE-FRACTION scale.
+        // SOLUTES (CO2 + ions + carbamate): unsymmetric lc (lcg - lcinf) + PDH + Born, MOLAL scale.
         ArrayXr ln_g(N);
         for(auto i = 0; i < N; ++i)
         {
-            if(i == (int)iw) ln_g[i] = lcg[i] + ln_gPDH[i];
-            else ln_g[i] = (lcg[i] - lcinf[i]) + ln_gPDH[i] + ln_gBorn[i] + ln_xw;
+            if(isSolvent(i)) ln_g[i] = lcg[i] + ln_gPDH[i] + ln_gBorn[i];
+            else             ln_g[i] = (lcg[i] - lcinf[i]) + ln_gPDH[i] + ln_gBorn[i] + ln_xw;
         }
         props.ln_g = ln_g;
 
-        props.ln_a = props.ln_g + ln_m;
-        props.ln_a[iw] = props.ln_g[iw] + ln_xw;
+        props.ln_a = props.ln_g + ln_m;                                     // molal scale (solutes)
+        for(auto i = 0; i < N; ++i)
+            if(isSolvent(i)) props.ln_a[i] = props.ln_g[i] + log(x[i]);      // mole-fraction scale (solvents)
     };
 
     return fn;
