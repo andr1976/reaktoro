@@ -19,6 +19,7 @@
 
 // Reaktoro includes
 #include <Reaktoro/Common/Algorithms.hpp>
+#include <Reaktoro/Common/Constants.hpp>
 #include <Reaktoro/Common/Exception.hpp>
 #include <Reaktoro/Core/Phase.hpp>
 #include <Reaktoro/Models/ActivityModels/Support/CubicEOS.hpp>
@@ -86,7 +87,16 @@ auto activityModelCubicEOS(SpeciesList const& specieslist, CubicEOS::EquationMod
         props.VxT  = cprops.VT;
         props.VxP  = cprops.VP;
         props.Vxi  = cprops.Vi;
-        props.Gx   = cprops.Gres;
+        // Gx is the FULL corrective molar Gibbs so that G = sum(x*G0) + Gx = sum(x*u), keeping the
+        // reported molarEntropy/molarGibbs thermodynamically consistent. It must include the ideal-gas
+        // MIXING (R*T*sum x*ln x) and PRESSURE (R*T*ln Pbar) contributions that ln_a already carries
+        // below; otherwise the reported gas entropy loses -R*(sum x*ln x + ln P) (dS/dlnP ~ 0 instead
+        // of -R). Guard x*ln x -> 0 as x -> 0. Chemical potentials/equilibrium are unaffected (ln_a untouched).
+        const auto R = universalGasConstant;
+        real xlnx = 0.0;
+        for(auto i = 0; i < x.size(); ++i)
+            if(x[i] > 0.0) xlnx += x[i]*log(x[i]);   // ideal-mixing sum, guarded (x*ln x -> 0 as x -> 0)
+        props.Gx   = cprops.Gres + R*T*(xlnx + log(Pbar));
         props.Hx   = cprops.Hres;
         props.Cpx  = cprops.Cpres;
         props.ln_g = cprops.ln_phi;
