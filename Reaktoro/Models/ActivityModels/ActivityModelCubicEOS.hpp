@@ -27,6 +27,10 @@ namespace Reaktoro {
 /// @param specieslist The species in the fluid phase.
 using CubicBipModelGenerator = Fn<CubicEOS::BipModel(SpeciesList const& specieslist)>;
 
+/// Return the activity model for fluid phases based on a given cubic equation of state model
+/// (e.g. `CubicEOS::EquationModelPengRobinson78()` with `rootstate = StateOfMatter::Gas` forces the vapour root).
+auto ActivityModelCubicEOS(CubicBipModelGenerator cbipmodel, CubicEOS::EquationModel const& eqmodel) -> ActivityModelGenerator;
+
 /// Return the activity model for fluid phases based on the Van der Waals cubic equation of state.
 auto ActivityModelVanDerWaals(CubicBipModelGenerator cbipmodel = {}) -> ActivityModelGenerator;
 

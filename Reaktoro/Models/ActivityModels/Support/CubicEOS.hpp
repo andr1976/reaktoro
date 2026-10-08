@@ -133,6 +133,12 @@ struct EquationModel
     real Omega;        ///< The constant \eq{\Omega} in the cubic equation of state.
     real Psi;          ///< The constant \eq{\Psi} in the cubic equation of state.
     AlphaModel alphafn; ///< The function \eq{\alpha(T_r;\omega)} in the cubic equation of state.
+
+    /// The root to take when the cubic has three real roots. `Unspecified` (default) picks the root of
+    /// minimum residual Gibbs energy. `Gas` always takes the largest root (vapour) and `Liquid` the smallest,
+    /// for phases whose state of matter is known a priori (e.g. a vapour phase queried in a metastable,
+    /// supersaturated state, where the minimum-Gibbs root would turn it into a liquid).
+    StateOfMatter rootstate = StateOfMatter::Unspecified;
 };
 
 /// Return a cubic equation model representative of the van der Waals (1873) cubic equation of state.
