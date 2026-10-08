@@ -510,7 +510,10 @@ struct Equation::Impl
         {
             const auto Zmax = std::max({roots[0], roots[1], roots[2]});
             const auto Zmin = std::min({roots[0], roots[1], roots[2]});
-            props.som = detail::determinePhysicalStateThreeRealRoots(Zmin, Zmax, beta, q, epsilon, sigma, T);
+            auto const& rootstate = eqspecs.eqmodel.rootstate;
+            if(rootstate == StateOfMatter::Gas || rootstate == StateOfMatter::Liquid)
+                props.som = rootstate; // root imposed by the equation model (see EquationModel::rootstate)
+            else props.som = detail::determinePhysicalStateThreeRealRoots(Zmin, Zmax, beta, q, epsilon, sigma, T);
             Z = (props.som == StateOfMatter::Gas) ? Zmax : Zmin;
         }
         else
