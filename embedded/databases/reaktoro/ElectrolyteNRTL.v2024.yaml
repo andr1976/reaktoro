@@ -69,7 +69,7 @@ Species:
   AggregateState: Aqueous
   StandardThermoModel:
     ExtendedUNIQUAC:
-      Gr: -278.596
+      Gr: -279.0447   # Yi DGAQFM -278.596 + RT0*ln(gamma_inf) (-0.181): Aspen uses a pure-liquid (symmetric) activity for the zwitterion
       Hr: -535.204
       Cp: 277.75
       a: 277.75
