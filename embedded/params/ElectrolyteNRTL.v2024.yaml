@@ -34,24 +34,24 @@ ActivityModelParams:
           AMP: [ -4, 0, 0, 8, 0, 0, 0.2 ]
           CO2: [ -4, 0, 0, 8, 0, 0, 0.2 ]
           H2O: [ -4, 0, 0, 8, 0, 0, 0.2 ]
-          PZ: [ -4, 0, 0, 8, 0, 0, 0.2 ]
-          PZCOOH: [ -4, 0, 0, 8, 0, 0, 0.2 ]
+          PZ: [ -2, 0, 0, 10, 0, 0, 0.2 ]  # Aspen default (non-water molecule), not in Yi
+          PZCOOH: [ -2, 0, 0, 10, 0, 0, 0.2 ]  # Aspen default (non-water molecule), not in Yi
         PZ(COO)2-2:
           AMP: [ 2.2646593, 912.30267, 0, 15.502588, 280.97907, 0, 0.2 ]
-          CO2: [ -4, 0, 0, 8, 0, 0, 0.2 ]
+          CO2: [ -2, 0, 0, 10, 0, 0, 0.2 ]  # Aspen default (non-water molecule), not in Yi
           H2O: [ -4.6329853, -180.30126, 0, 9.1229987, 448.59415, 0, 0.2 ]
           PZ: [ -0.74757988, -348.35032, 0, 0.65665612, -563.32389, 0, 0.2 ]
           PZCOOH: [ -4, -4, 0, 8, 8, 0, 0.2 ]
         PZCOO-:
           AMP: [ -1.7903679, 771.13378, 0, 1.5370823, 998.88917, 0, 0.2 ]
-          CO2: [ -4, 0, 0, 8, 0, 0, 0.2 ]
+          CO2: [ -2, 0, 0, 10, 0, 0, 0.2 ]  # Aspen default (non-water molecule), not in Yi
           H2O: [ -7.6448985, -90.12329, 0, 7.9113815, 665.28178, 0, 0.2 ]
           PZ: [ -8.4650459, -580.62998, 0, 4.9343921, -65.679805, 0, 0.2 ]
           PZCOOH: [ -4, -4, 0, 8, 8, 0, 0.2 ]
       H3O+:
         CO3-2:
           AMP: [ 8, 0, 0, 8, 0, 0, 0.2 ]
-          CO2: [ -4, 0, 0, 8, 0, 0, 0.2 ]
+          CO2: [ -2, 0, 0, 10, 0, 0, 0.2 ]  # Aspen default (non-water molecule), not in Yi
           H2O: [ -4, 0, 0, 8, 0, 0, 0.2 ]
           PZ: [ -4, 0, 0, 8, 0, 0, 0.2 ]
           PZCOOH: [ -4, 0, 0, 8, 0, 0, 0.2 ]
@@ -63,18 +63,18 @@ ActivityModelParams:
           PZCOOH: [ -4, 0, 0, 8, 0, 0, 0.2 ]
         OH-:
           AMP: [ -4, 0, 0, 8, 0, 0, 0.2 ]
-          CO2: [ -4, 0, 0, 8, 0, 0, 0.2 ]
+          CO2: [ -2, 0, 0, 10, 0, 0, 0.2 ]  # Aspen default (non-water molecule), not in Yi
           H2O: [ -4, 0, 0, 8, 0, 0, 0.2 ]
           PZ: [ -4, 0, 0, 8, 0, 0, 0.2 ]
           PZCOOH: [ -4, 0, 0, 8, 0, 0, 0.2 ]
         PZ(COO)2-2:
-          AMP: [ -4, 0, 0, 8, 0, 0, 0.2 ]
+          AMP: [ -2, 0, 0, 10, 0, 0, 0.2 ]  # Aspen default (non-water molecule), not in Yi
           CO2: [ -4, 0, 0, 8, 0, 0, 0.2 ]
           H2O: [ -4, 0, 0, 8, 0, 0, 0.2 ]
           PZ: [ -4, 0, 0, 8, 0, 0, 0.2 ]
           PZCOOH: [ -4, 0, 0, 8, 0, 0, 0.2 ]
         PZCOO-:
-          AMP: [ -4, 0, 0, 8, 0, 0, 0.2 ]
+          AMP: [ -2, 0, 0, 10, 0, 0, 0.2 ]  # Aspen default (non-water molecule), not in Yi
           CO2: [ -4, 0, 0, 8, 0, 0, 0.2 ]
           H2O: [ -4, 0, 0, 8, 0, 0, 0.2 ]
           PZ: [ -4, 0, 0, 8, 0, 0, 0.2 ]
@@ -82,7 +82,7 @@ ActivityModelParams:
       PZH+:
         CO3-2:
           AMP: [ 8, -4, 0, 8, 8, 0, 0.2 ]
-          CO2: [ -4, 0, 0, 8, 0, 0, 0.2 ]
+          CO2: [ -2, 0, 0, 10, 0, 0, 0.2 ]  # Aspen default (non-water molecule), not in Yi
           H2O: [ -4, 0, 0, 8, 0, 0, 0.2 ]
           PZ: [ -4, 0, 0, 8, 0, 0, 0.2 ]
           PZCOOH: [ -4, 0, 0, 8, 0, 0, 0.2 ]
@@ -93,8 +93,8 @@ ActivityModelParams:
           PZ: [ -4.8835708, 122.03857, 0, 63.04475, 4167.8694, 0, 0.2 ]
           PZCOOH: [ -2.2022576, 0, 0, 4.6364456, 0, 0, 0.2 ]
         OH-:
-          AMP: [ -4, 0, 0, 8, 0, 0, 0.2 ]
-          CO2: [ -4, 0, 0, 8, 0, 0, 0.2 ]
+          AMP: [ -2, 0, 0, 10, 0, 0, 0.2 ]  # Aspen default (non-water molecule), not in Yi
+          CO2: [ -2, 0, 0, 10, 0, 0, 0.2 ]  # Aspen default (non-water molecule), not in Yi
           H2O: [ -4, 0, 0, 8, 0, 0, 0.2 ]
           PZ: [ -4, 0, 0, 8, 0, 0, 0.2 ]
           PZCOOH: [ -4, 0, 0, 8, 0, 0, 0.2 ]
@@ -144,3 +144,8 @@ ActivityModelParams:
     dielectric:
       PZ: [ 4.24, 1532, 298.15 ]
       AMP: [ 21.0466, 8451.2, 298.15 ]
+    # Liquid molar volume [V0 m3/mol at 298.15 K, dV/dT m3/mol/K] of the amine solvents, for the
+    # mixed-solvent density in the PDH term (approximate: AMP 0.934 g/cm3 at 25 C; PZ subcooled liquid).
+    molarvolume:
+      AMP: [ 9.54e-5, 7.5e-8 ]
+      PZ: [ 9.00e-5, 8.0e-8 ]

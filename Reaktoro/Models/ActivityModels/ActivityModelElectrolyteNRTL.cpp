@@ -106,6 +106,14 @@ auto createActivityModelElectrolyteNRTL(SpeciesList const& species, ActivityMode
         std::array<double,3> a{0,0,298.15}; for(int k = 0; k < 3 && k < (int)c.size(); ++k) a[k] = c[k].val();
         diel[(int)i] = a;
     }
+    std::map<int, std::array<double,2>> vmol;   // solvent liquid molar volume [V0, dV/dT] (m3/mol)
+    for(auto const& [s, c] : params.molarvolume)
+    {
+        auto i = species.findWithName(s);
+        if(i >= N) continue;
+        vmol[(int)i] = { c.size() > 0 ? c[0].val() : 0.0, c.size() > 1 ? c[1].val() : 0.0 };
+    }
+    ArrayXd mw(N); for(auto i = 0; i < N; ++i) mw[i] = species[i].molarMass();   // kg/mol
     ArrayXd rborn = ArrayXd::Constant(N, 3.0e-10);
     for(auto const& [s, r] : params.bornradius)
     {
@@ -266,31 +274,42 @@ auto createActivityModelElectrolyteNRTL(SpeciesList const& species, ActivityMode
             lcinf = lc(Xref);
         }
 
-        // --- Pitzer-Debye-Huckel (mole-fraction basis, eq 6) ---
+        // --- Mixed-solvent properties over the solvents {H2O + species with CPDIEC data} ---
+        // eps_s: mass-fraction-weighted dielectric constant (Aspen); M_s: mole-averaged molar mass;
+        // d_s: mass density from ideal mixing of the solvent liquid molar volumes. Pure water gives
+        // eps_w, Mw and 997 kg/m3 (the previous water-only values), so aqueous results are unchanged.
+        const real epsw = epsWater(T);
+        real epsmix = epsw, Msolv = Mw, dsolv = 997.0;
+        {
+            real nx = 0.0, mass = 0.0, epsm = 0.0, vol = 0.0;
+            for(auto i = 0; i < N; ++i)
+            {
+                const bool solv = (i==(int)iw) || diel.count(i);
+                if(!solv || !(x[i] > 0.0)) continue;
+                const real mi = x[i]*mw[i];
+                nx += x[i]; mass += mi; epsm += mi*epsSolvent(i,T);
+                auto it = vmol.find(i);
+                vol += (i==(int)iw || it==vmol.end()) ? mi/997.0 : x[i]*(it->second[0] + it->second[1]*(T - 298.15));
+            }
+            if(mass > 0.0) { epsmix = epsm/mass; Msolv = mass/nx; dsolv = mass/vol; }
+        }
+
+        // --- Pitzer-Debye-Huckel (mole-fraction basis, eq 6), mixed-solvent eps, density and molar mass ---
         real Ix = 0.0; for(auto i = 0; i < N; ++i) Ix += x[i]*z[i]*z[i]; Ix *= 0.5;
         ArrayXr ln_gPDH = ArrayXr::Zero(N);
         if(Ix.val() > 0.0)
         {
-            auto epsw = epsWater(T);
-            real dsolv = 997.0; // kg/m3 (water-dominated)
-            real Aphi = (1.0/3.0)*sqrt(2*3.14159265358979323846*NA*dsolv)*pow(QE*QE/(4*3.14159265358979323846*EPS0*epsw*KB*T), 1.5);
+            real Aphi = (1.0/3.0)*sqrt(2*3.14159265358979323846*NA*dsolv)*pow(QE*QE/(4*3.14159265358979323846*EPS0*epsmix*KB*T), 1.5);
             real sI = sqrt(Ix);
-            real pref = std::sqrt(1000.0/(Mw*1000.0)) * Aphi; // Mw*1000 = g/mol solvent MW
+            real pref = sqrt(1.0/Msolv) * Aphi;   // (1000/M_s[g/mol])^1/2 = (1/M_s[kg/mol])^1/2
             for(auto i = 0; i < N; ++i){ real z2 = z[i]*z[i];
                 ln_gPDH[i] = -pref*((2*z2/RHO)*log(1+RHO*sI) + (z2*sI - 2*pow(Ix,1.5))/(1+RHO*sI)); }
         }
 
-        // --- Born term (eq 8), mixed-solvent dielectric ---
-        // eps_mix = solvent-mole-fraction-weighted over {H2O + species with CPDIEC data}
-        real epsmix, epsw2 = epsWater(T);
-        {
-            real num = 0.0, den = 0.0;
-            for(auto i = 0; i < N; ++i){ bool solv = (i==(int)iw) || diel.count(i); if(solv && x[i]>0.0){ num += x[i]*epsSolvent(i,T); den += x[i]; } }
-            epsmix = den>0.0 ? num/den : epsw2;
-        }
+        // --- Born term (eq 8): Aspen's 1e-2 converts its cgs form with r in m; in SI (4·pi·eps0) it is absent ---
         ArrayXr ln_gBorn = ArrayXr::Zero(N);
         {
-            real bpref = (QE*QE/(2*4*3.14159265358979323846*EPS0*KB*T))*(1.0/epsmix - 1.0/epsw2)*1e-2;
+            real bpref = (QE*QE/(2*4*3.14159265358979323846*EPS0*KB*T))*(1.0/epsmix - 1.0/epsw);
             for(auto i = 0; i < N; ++i) if(z[i]!=0.0) ln_gBorn[i] = bpref*z[i]*z[i]/rborn[i];
         }
 

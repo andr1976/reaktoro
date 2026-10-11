@@ -51,6 +51,12 @@ struct ActivityModelParamsElectrolyteNRTL
 
     /// Born radius (m) per ionic species. Default 3.0e-10 m if omitted.
     Tuples<String, real> bornradius;
+
+    /// Liquid molar volume (m3/mol) per non-water solvent (species with dielectric data), used for the
+    /// mixed-solvent density in the Pitzer-Debye-Hückel term; coeffs = [ V0, dV/dT ] with
+    /// V(T) = V0 + dV/dT·(T - 298.15). Water uses Mw/997 kg/m3. Solvents without an entry use water's
+    /// mass density.
+    Tuples<String, Vec<real>> molarvolume;
 };
 
 /// Return the electrolyte NRTL activity model for aqueous electrolyte phases.

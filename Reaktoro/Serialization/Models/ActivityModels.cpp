@@ -211,6 +211,7 @@ REAKTORO_DATA_ENCODE_DEFINE(ActivityModelParamsElectrolyteNRTL)
     for(auto const& [e1, e2, v] : obj.gmelcee) data["gmelcee"][e1][e2] = v;
     for(auto const& [s, v] : obj.dielectric)   data["dielectric"][s] = v;
     for(auto const& [s, r] : obj.bornradius)   data["bornradius"][s] = r.val();
+    for(auto const& [s, v] : obj.molarvolume)  data["molarvolume"][s] = v;
 }
 
 REAKTORO_DATA_DECODE_DEFINE(ActivityModelParamsElectrolyteNRTL)
@@ -238,6 +239,10 @@ REAKTORO_DATA_DECODE_DEFINE(ActivityModelParamsElectrolyteNRTL)
     if(data.exists("bornradius"))
         for(auto const& [s, v] : data["bornradius"].asDict())
             obj.bornradius.push_back(Tuple<String, real>{ s, v.asFloat() });
+
+    if(data.exists("molarvolume"))
+        for(auto const& [s, vals] : data["molarvolume"].asDict())
+            obj.molarvolume.push_back(Tuple<String, Vec<real>>{ s, vals });
 }
 
 } // namespace Reaktoro
