@@ -97,6 +97,22 @@ auto createActivityModelElectrolyteNRTL(SpeciesList const& species, ActivityMode
         gm[{(int)ic,(int)ia,(int)iB}] = a;
     }
 
+    // Dense copy of the molecule-ion-pair parameters for the per-call precomputation in lc(): index
+    // t = (ci*Na + ai)*Nm + mi over the positions of the cation, anion and molecule in icat/ian/imol.
+    const int Nc = static_cast<int>(icat.size()), Na = static_cast<int>(ian.size()), Nm = static_cast<int>(imol.size());
+    std::vector<int> pos(N, -1);
+    for(int k = 0; k < Nc; ++k) pos[icat[k]] = k;
+    for(int k = 0; k < Na; ++k) pos[ian[k]] = k;
+    for(int k = 0; k < Nm; ++k) pos[imol[k]] = k;
+    std::vector<std::array<double,7>> tpar(Nc*Na*Nm);
+    std::vector<char> thas(Nc*Na*Nm, 0);
+    for(auto const& [key, a] : gm)
+    {
+        const int t = (pos[key[0]]*Na + pos[key[1]])*Nm + pos[key[2]];
+        if(pos[key[0]] < 0 || pos[key[1]] < 0 || pos[key[2]] < 0 || z[key[0]] <= 0.0 || z[key[1]] >= 0.0 || z[key[2]] != 0.0) continue;
+        tpar[t] = a; thas[t] = 1;
+    }
+
     // --- Dielectric coefficients per solvent, and Born radii ---
     std::map<int, std::array<double,3>> diel;
     for(auto const& [s, c] : params.dielectric)
@@ -174,6 +190,35 @@ auto createActivityModelElectrolyteNRTL(SpeciesList const& species, ActivityMode
 
         // Local-composition ln gamma (symmetric), computed at a given composition array XX.
         // Returns ArrayXr of ln gamma^lc for all species.
+        // Temperature-dependent interaction parameters, computed once per call (they were recomputed, with map
+        // lookups, inside the cell loops of lc for every neighbour). Same expressions as tau_caB/tau_Bca/alpha_ca
+        // and tau_mm/alpha_mm; absent triples have tau = 0, alpha = 0.2.
+        const int NT = Nc*Na*Nm;
+        std::vector<real> tCA(NT), tBC(NT), Gca(NT);
+        std::vector<double> alca(NT);
+        {
+            const real ft = (TREF - T)/T + log(T/TREF);
+            for(int t = 0; t < NT; ++t)
+            {
+                if(thas[t]) {
+                    auto const& q = tpar[t];
+                    tCA[t] = q[0] + q[1]/T + q[2]*ft;
+                    tBC[t] = q[3] + q[4]/T + q[5]*ft;
+                    alca[t] = q[6];
+                } else { tCA[t] = 0.0; tBC[t] = 0.0; alca[t] = 0.2; }
+                Gca[t] = exp(-alca[t]*tCA[t]);
+            }
+        }
+        std::vector<real> tMM(Nm*Nm), GMM(Nm*Nm);   // [k*Nm + B]: neighbour molecule k around central molecule B
+        for(int kk = 0; kk < Nm; ++kk) for(int bb = 0; bb < Nm; ++bb) {
+            const int k = imol[kk], B = imol[bb];
+            tMM[kk*Nm + bb] = tau_mm(k, B, T);
+            GMM[kk*Nm + bb] = exp(-alpha_mm(k, B, T)*tMM[kk*Nm + bb]);
+        }
+        auto tix = [&](int c, int a, int B) { return (pos[c]*Na + pos[a])*Nm + pos[B]; };
+
+        // Local-composition ln gamma (symmetric), computed at a given composition array XX.
+        std::vector<real> GcB(Nc*Nm), tcB(Nc*Nm), GaB(Na*Nm), taB(Na*Nm), gg(N), gtau(N);
         auto lc = [&](ArrayXr const& XX) -> ArrayXr
         {
             real sXc = 0.0, sXa = 0.0;
@@ -183,74 +228,69 @@ auto createActivityModelElectrolyteNRTL(SpeciesList const& species, ActivityMode
             if(sXc <= 0.0 || sXa <= 0.0) return out; // no electrolyte -> lc contribution handled by mol-mol only below
 
             // aggregate G_cB, tau_cB (per cation c, molecule B) and G_aB, tau_aB
-            auto G_cB = [&](int c, int B) -> real {
-                real s = 0.0; for(auto a : ian) s += XX[a]*exp(-alpha_ca(c,a,B)*tau_caB(c,a,B,T)); return s/sXa; };
-            auto a_cB = [&](int c, int B) -> real {
-                real s = 0.0; for(auto a : ian) s += XX[a]*alpha_ca(c,a,B); return s/sXa; };
-            auto tau_cB = [&](int c, int B) -> real { return -log(G_cB(c,B))/a_cB(c,B); };
-            auto G_aB = [&](int a, int B) -> real {
-                real s = 0.0; for(auto c : icat) s += XX[c]*exp(-alpha_ca(c,a,B)*tau_caB(c,a,B,T)); return s/sXc; };
-            auto a_aB = [&](int a, int B) -> real {
-                real s = 0.0; for(auto c : icat) s += XX[c]*alpha_ca(c,a,B); return s/sXc; };
-            auto tau_aB = [&](int a, int B) -> real { return -log(G_aB(a,B))/a_aB(a,B); };
-
-            // per-species neighbour G,tau in each cell type
-            // molecule-B cell: neighbour k
-            auto molcell = [&](int B, int k) -> std::pair<real,real> {
-                if(z[k]==0.0){ real t=tau_mm(k,B,T); return {exp(-alpha_mm(k,B,T)*t), t}; }
-                if(z[k]>0.0){ real g=G_cB(k,B); return {g, tau_cB(k,B)}; }
-                real g=G_aB(k,B); return {g, tau_aB(k,B)};
-            };
+            for(int ci = 0; ci < Nc; ++ci) for(int mi = 0; mi < Nm; ++mi) {
+                real sg = 0.0, sa = 0.0;
+                for(int ai = 0; ai < Na; ++ai) { const int t = (ci*Na + ai)*Nm + mi; sg += XX[ian[ai]]*Gca[t]; sa += XX[ian[ai]]*alca[t]; }
+                const real g = sg/sXa, al = sa/sXa;
+                GcB[ci*Nm + mi] = g; tcB[ci*Nm + mi] = -log(g)/al;
+            }
+            for(int ai = 0; ai < Na; ++ai) for(int mi = 0; mi < Nm; ++mi) {
+                real sg = 0.0, sa = 0.0;
+                for(int ci = 0; ci < Nc; ++ci) { const int t = (ci*Na + ai)*Nm + mi; sg += XX[icat[ci]]*Gca[t]; sa += XX[icat[ci]]*alca[t]; }
+                const real g = sg/sXc, al = sa/sXc;
+                GaB[ai*Nm + mi] = g; taB[ai*Nm + mi] = -log(g)/al;
+            }
 
             // Assemble term1 (own-cell avg) + term2 (contribution to all cells) per species.
             // cells: molecule B (weight X_B); cation c ref anion a' (weight X_c*X_a'/sXa);
             //        anion a ref cation c' (weight X_a*X_c'/sXc).
             ArrayXr t1 = ArrayXr::Zero(N), t2 = ArrayXr::Zero(N);
 
-            // --- molecule cells ---
-            for(auto B : imol) { if(XX[B]<=0.0) continue;
+            // --- molecule cells: every species is a neighbour ---
+            for(int bb = 0; bb < Nm; ++bb) { const int B = imol[bb]; if(XX[B]<=0.0) continue;
                 real D=0.0, Rn=0.0;
-                std::vector<std::pair<real,real>> gt(N);
-                for(auto k = 0; k < N; ++k){ if(XX[k]<=0.0){ gt[k]={0.0,0.0}; continue; } gt[k]=molcell(B,k); D+=XX[k]*gt[k].first; Rn+=XX[k]*gt[k].first*gt[k].second; }
+                for(auto k = 0; k < N; ++k){
+                    if(XX[k]<=0.0){ gg[k]=0.0; gtau[k]=0.0; continue; }
+                    if(z[k]==0.0){ gg[k]=GMM[pos[k]*Nm + bb]; gtau[k]=tMM[pos[k]*Nm + bb]; }
+                    else if(z[k]>0.0){ gg[k]=GcB[pos[k]*Nm + bb]; gtau[k]=tcB[pos[k]*Nm + bb]; }
+                    else { gg[k]=GaB[pos[k]*Nm + bb]; gtau[k]=taB[pos[k]*Nm + bb]; }
+                    D+=XX[k]*gg[k]; Rn+=XX[k]*gg[k]*gtau[k];
+                }
                 real R = D>0.0 ? Rn/D : real(0.0);
-                t1[B] += R; // B's own cell is a molecule cell (handled below via central match)
-                for(auto i = 0; i < N; ++i) if(XX[i]>0.0 && D>0.0) t2[i] += XX[B]*(gt[i].first/D)*(gt[i].second - R);
+                t1[B] += R;
+                for(auto i = 0; i < N; ++i) if(XX[i]>0.0 && D>0.0) t2[i] += XX[B]*(gg[i]/D)*(gtau[i] - R);
             }
-            // fix term1 for molecules: it's the R of their own molecule cell (added above only if B==i). Undo the generic add:
-            // (the loop above added R to t1[B] for each molecule cell B, i.e. exactly own-cell for molecules) -> OK.
 
-            // --- cation cells (c, a') ---
+            // --- cation cells (c, a'): molecules and anions are neighbours (like-ion repulsion) ---
             for(auto c : icat){ if(XX[c]<=0.0) continue;
                 for(auto ap : ian){ if(XX[ap]<=0.0) continue;
                     real w = XX[c]*(XX[ap]/sXa);
-                    real D=0.0, Rn=0.0; std::vector<std::pair<real,real>> gt(N);
+                    real D=0.0, Rn=0.0;
                     for(auto k = 0; k < N; ++k){
-                        if(XX[k]<=0.0 || z[k]>0.0){ gt[k]={0.0,0.0}; continue; } // like-ion (cations) excluded
-                        real g, t;
-                        if(z[k]==0.0){ t = tau_cB(c,k) - tau_caB(c,ap,k,T) + tau_Bca(c,ap,k,T); g = exp(-alpha_ca(c,ap,k)*t); }
-                        else { t = 0.0; g = 1.0; } // anion neighbour: e-e default
-                        gt[k]={g,t}; D+=XX[k]*g; Rn+=XX[k]*g*t;
+                        if(XX[k]<=0.0 || z[k]>0.0){ gg[k]=0.0; gtau[k]=0.0; continue; }
+                        if(z[k]==0.0){ const int t = tix(c,ap,k); gtau[k] = tcB[pos[c]*Nm + pos[k]] - tCA[t] + tBC[t]; gg[k] = exp(-alca[t]*gtau[k]); }
+                        else { gtau[k] = 0.0; gg[k] = 1.0; } // anion neighbour: e-e default
+                        D+=XX[k]*gg[k]; Rn+=XX[k]*gg[k]*gtau[k];
                     }
                     real R = D>0.0 ? Rn/D : real(0.0);
                     t1[c] += (XX[ap]/sXa)*R;
-                    for(auto i = 0; i < N; ++i) if(XX[i]>0.0 && z[i]<=0.0 && D>0.0) t2[i] += w*(gt[i].first/D)*(gt[i].second - R);
+                    for(auto i = 0; i < N; ++i) if(XX[i]>0.0 && z[i]<=0.0 && D>0.0) t2[i] += w*(gg[i]/D)*(gtau[i] - R);
                 }
             }
-            // --- anion cells (a, c') ---
+            // --- anion cells (a, c'): molecules and cations are neighbours ---
             for(auto a : ian){ if(XX[a]<=0.0) continue;
                 for(auto cp : icat){ if(XX[cp]<=0.0) continue;
                     real w = XX[a]*(XX[cp]/sXc);
-                    real D=0.0, Rn=0.0; std::vector<std::pair<real,real>> gt(N);
+                    real D=0.0, Rn=0.0;
                     for(auto k = 0; k < N; ++k){
-                        if(XX[k]<=0.0 || z[k]<0.0){ gt[k]={0.0,0.0}; continue; } // like-ion (anions) excluded
-                        real g, t;
-                        if(z[k]==0.0){ t = tau_aB(a,k) - tau_caB(cp,a,k,T) + tau_Bca(cp,a,k,T); g = exp(-alpha_ca(cp,a,k)*t); }
-                        else { t = 0.0; g = 1.0; }
-                        gt[k]={g,t}; D+=XX[k]*g; Rn+=XX[k]*g*t;
+                        if(XX[k]<=0.0 || z[k]<0.0){ gg[k]=0.0; gtau[k]=0.0; continue; }
+                        if(z[k]==0.0){ const int t = tix(cp,a,k); gtau[k] = taB[pos[a]*Nm + pos[k]] - tCA[t] + tBC[t]; gg[k] = exp(-alca[t]*gtau[k]); }
+                        else { gtau[k] = 0.0; gg[k] = 1.0; }
+                        D+=XX[k]*gg[k]; Rn+=XX[k]*gg[k]*gtau[k];
                     }
                     real R = D>0.0 ? Rn/D : real(0.0);
                     t1[a] += (XX[cp]/sXc)*R;
-                    for(auto i = 0; i < N; ++i) if(XX[i]>0.0 && z[i]>=0.0 && D>0.0) t2[i] += w*(gt[i].first/D)*(gt[i].second - R);
+                    for(auto i = 0; i < N; ++i) if(XX[i]>0.0 && z[i]>=0.0 && D>0.0) t2[i] += w*(gg[i]/D)*(gtau[i] - R);
                 }
             }
             for(auto i = 0; i < N; ++i) out[i] = (z[i]!=0.0 ? std::abs(z[i]) : 1.0) * (t1[i] + t2[i]);
