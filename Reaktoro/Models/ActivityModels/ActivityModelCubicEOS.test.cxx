@@ -19,6 +19,7 @@
 #include <Reaktoro/catch.hxx>
 
 // Reaktoro includes
+#include <Reaktoro/Common/Constants.hpp>
 #include <Reaktoro/Models/ActivityModels/ActivityModelCubicEOS.hpp>
 using namespace Reaktoro;
 
@@ -245,5 +246,69 @@ TEST_CASE("Testing ActivityModelCubicEOS", "[ActivityModelCubicEOS]")
 
             checkActivities(x, P, props);
         }
+    }
+}
+
+// Fixes of the CAPE-OPEN fork (CAPEOPEN-FORK.md §1.3): 48196742 (Gx carries ideal mixing + pressure) and
+// 9ff15a45 (opt-in root selection, EquationModel::rootstate).
+TEST_CASE("Testing ActivityModelCubicEOS fixes of the CAPE-OPEN fork", "[ActivityModelCubicEOS][capeopen]")
+{
+    SECTION("Gx is the full corrective Gibbs energy: Gx = RT sum x_i ln a_i")
+    {
+        const auto species = SpeciesList("CO2 H2O");
+        const ArrayXr x = ArrayXr{{0.9, 0.1}};
+        ActivityModel fn = ActivityModelPengRobinson()(species);
+        ActivityProps props = ActivityProps::create(species.size());
+        for(auto const P : { 1.0e5, 2.0e5, 20.0e5 })
+        {
+            fn(props, {400.0, P, x});
+            real sum = 0.0;
+            for(auto i = 0; i < x.size(); ++i) sum += x[i]*props.ln_a[i];
+            INFO("P = " << P);
+            CHECK( props.Gx.val() == Approx((universalGasConstant*400.0*sum).val()).epsilon(1e-12) );
+        }
+    }
+
+    SECTION("pressure dependence of Gx gives dS/dlnP = -R for a near-ideal gas")
+    {
+        const auto species = SpeciesList("CO2 H2O");
+        const ArrayXr x = ArrayXr{{0.9, 0.1}};
+        ActivityModel fn = ActivityModelPengRobinson()(species);
+        ActivityProps props = ActivityProps::create(species.size());
+        // S_x = -dG_x/dT at constant P; d(S_x)/d(ln P) by finite differences in P
+        auto Sx = [&](double P) {
+            const double h = 1e-3;
+            fn(props, {400.0 + h, P, x}); const double g2 = props.Gx.val();
+            fn(props, {400.0 - h, P, x}); const double g1 = props.Gx.val();
+            return -(g2 - g1)/(2*h);
+        };
+        const double slope = (Sx(1.1e5) - Sx(1.0e5))/std::log(1.1);
+        CHECK( slope == Approx(-universalGasConstant).epsilon(0.02) );
+    }
+
+    SECTION("supersaturated water vapour: default picks the liquid root, rootstate = Gas forces the vapour root")
+    {
+        const auto species = SpeciesList("H2O");
+        const ArrayXr x = ArrayXr{{1.0}};
+        ActivityProps props = ActivityProps::create(1);
+
+        ActivityModel fdefault = ActivityModelPengRobinson78()(species);
+        fdefault(props, {298.15, 1.0e5, x});
+        CHECK( props.som == StateOfMatter::Liquid );
+        const auto Vliq = props.Vx.val();
+
+        auto eqmodel = CubicEOS::EquationModelPengRobinson78();
+        eqmodel.rootstate = StateOfMatter::Gas;
+        ActivityModel fgas = ActivityModelCubicEOS({}, eqmodel)(species);
+        fgas(props, {298.15, 1.0e5, x});
+        CHECK( props.som == StateOfMatter::Gas );
+        CHECK( props.Vx.val() > 100.0*Vliq );                                        // vapour molar volume
+        CHECK( props.Vx.val() == Approx(universalGasConstant*298.15/1.0e5).epsilon(0.05) ); // ~ RT/P
+
+        eqmodel.rootstate = StateOfMatter::Liquid;
+        ActivityModel fliq = ActivityModelCubicEOS({}, eqmodel)(species);
+        fliq(props, {298.15, 1.0e5, x});
+        CHECK( props.som == StateOfMatter::Liquid );
+        CHECK( props.Vx.val() == Approx(Vliq) );
     }
 }

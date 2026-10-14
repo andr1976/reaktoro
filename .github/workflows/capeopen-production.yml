@@ -1,0 +1,60 @@
+name: capeopen-production
+
+# Builds the fork as the CAPE-OPEN packages use it (MSVC, conda-forge dependencies, Eigen 3.4) and runs the
+# CAPE-OPEN regression tests: the eNRTL/CESAR-1 golden values and the cubic-EOS fixes (tag [capeopen]) plus the
+# upstream cubic-EOS test case that the fork's EOS changes touch. See CAPEOPEN-FORK.md.
+
+on:
+  push:
+    branches:
+      - capeopen-production
+  pull_request:
+    branches:
+      - capeopen-production
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    runs-on: windows-2022
+    defaults:
+      run:
+        shell: cmd /C CALL {0}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniforge-version: latest
+          activate-environment: rkt
+          python-version: "3.12"
+          channels: conda-forge
+
+      - name: Dependencies (same pins as the production build)
+        run: >
+          conda install -y -n rkt -c conda-forge cmake eigen=3.4 autodiff catch2=2 nlohmann_json cpp-tabulate
+          tsl_ordered_map optima=0.6.0 phreeqc4rkt thermofun=0.4.5 chemicalfun yaml-cpp=0.8 spdlog=1.12 pybind11
+
+      - name: Configure
+        run: |
+          call conda activate rkt
+          cmake -S . -B build -G "Visual Studio 17 2022" -A x64 ^
+            -DCMAKE_PREFIX_PATH="%CONDA_PREFIX%\Library" -DPython_EXECUTABLE="%CONDA_PREFIX%\python.exe" ^
+            -DCMAKE_SHARED_LINKER_FLAGS="/LIBPATH:%CONDA_PREFIX%\Library\lib" ^
+            -DCMAKE_EXE_LINKER_FLAGS="/LIBPATH:%CONDA_PREFIX%\Library\lib" ^
+            -DREAKTORO_BUILD_TESTS=ON -DREAKTORO_BUILD_PYTHON=OFF -DREAKTORO_BUILD_EXAMPLES=OFF ^
+            -DREAKTORO_BUILD_DOCS=OFF -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+
+      - name: Build
+        run: |
+          call conda activate rkt
+          cmake --build build --config Release --target reaktoro-cpptests --parallel
+
+      - name: CAPE-OPEN regression tests
+        run: |
+          call conda activate rkt
+          set PATH=%CD%\build\Reaktoro\Release;%CONDA_PREFIX%\Library\bin;%PATH%
+          build\Reaktoro\Release\reaktoro-cpptests.exe "[capeopen],[ActivityModelCubicEOS]"
