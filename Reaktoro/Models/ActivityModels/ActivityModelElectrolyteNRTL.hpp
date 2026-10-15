@@ -57,6 +57,21 @@ struct ActivityModelParamsElectrolyteNRTL
     /// V(T) = V0 + dV/dT·(T - 298.15). Water uses Mw/997 kg/m3. Solvents without an entry use water's
     /// mass density.
     Tuples<String, Vec<real>> molarvolume;
+
+    /// Optional Aspen mixed-solvent Henry rule, per (Henry solute, solvent) pair; coeffs = [ A, B, C, D, Vc ] with
+    /// ln(H/Pa) = A + B/T + C·lnT + D·T and Vc the solvent critical volume (m3/mol). Water must be one of the solvents
+    /// of each solute. With w_A = x_A·Vc_A^(2/3) / Σ_B x_B·Vc_B^(2/3) over these solvents (true mole fractions) and
+    /// γ∞_iA the binary-NRTL infinite-dilution activity coefficient of solute i in solvent A:
+    ///   s = Σ_A w_A [ln H_iA − ln γ∞_iA],   Δ = s − [ln H_iW − ln γ∞_iW],   δ2 = s + ln γ∞_i,mix − ln H_iW,
+    /// where γ∞_i,mix is the NRTL infinite-dilution activity coefficient of i in the salt-free solvent mixture.
+    /// ln γ_i gains Δ (so the solute fugacity is x·γ_i·exp(s), Aspen's ELECNRTL), and every species listed in
+    /// `henryderived` gains ν·δ2 (Aspen's chemistry references the solute to infinite dilution in the mixed solvent).
+    /// Absent (the default): no change. The solute's standard state stays the pure-water Henry reference.
+    Tuples<String, String, Vec<real>> henry;
+
+    /// Species whose chemical equilibria inherit the Henry solute's mixed-solvent reference, per (solute, species):
+    /// ν = number of solute units in the species (e.g. CO2 → HCO3-, CO3-2, carbamate: 1). Used only with `henry`.
+    Tuples<String, String, real> henryderived;
 };
 
 /// Return the electrolyte NRTL activity model for aqueous electrolyte phases.

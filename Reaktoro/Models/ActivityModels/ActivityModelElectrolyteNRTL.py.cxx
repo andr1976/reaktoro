@@ -32,6 +32,8 @@ void exportActivityModelElectrolyteNRTL(py::module& m)
         .def_readwrite("dielectric", &ActivityModelParamsElectrolyteNRTL::dielectric, "Pure-solvent dielectric-constant coefficients (CPDIEC).")
         .def_readwrite("bornradius", &ActivityModelParamsElectrolyteNRTL::bornradius, "Born radius (m) per ionic species.")
         .def_readwrite("molarvolume", &ActivityModelParamsElectrolyteNRTL::molarvolume, "Liquid molar volume [V0, dV/dT] (m3/mol) per non-water solvent.")
+        .def_readwrite("henry", &ActivityModelParamsElectrolyteNRTL::henry, "Optional mixed-solvent Henry rule: [A, B, C, D, Vc] per (solute, solvent).")
+        .def_readwrite("henryderived", &ActivityModelParamsElectrolyteNRTL::henryderived, "Species inheriting the Henry solute's mixed-solvent reference, per (solute, species): nu.")
         ;
 
     m.def("ActivityModelElectrolyteNRTL", py::overload_cast<>(ActivityModelElectrolyteNRTL));

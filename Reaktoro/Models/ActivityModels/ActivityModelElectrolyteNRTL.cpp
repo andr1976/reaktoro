@@ -21,6 +21,8 @@
 #include <map>
 #include <array>
 #include <cmath>
+#include <algorithm>
+#include <vector>
 
 // Reaktoro includes
 #include <Reaktoro/Common/Constants.hpp>
@@ -135,6 +137,30 @@ auto createActivityModelElectrolyteNRTL(SpeciesList const& species, ActivityMode
     {
         auto i = species.findWithName(s);
         if(i < N) rborn[i] = r.val();
+    }
+
+    // --- Optional Aspen mixed-solvent Henry rule (params.henry / params.henryderived; absent -> no groups) ---
+    struct HenrySolvent { int A; std::array<double,4> lnH; double vc23; };
+    struct HenryGroup { int i; int iW; std::vector<HenrySolvent> solv; std::vector<std::pair<int,double>> derived; };
+    std::vector<HenryGroup> henry;
+    for(auto const& [si, sa, c] : params.henry)
+    {
+        auto i = species.findWithName(si), a = species.findWithName(sa);
+        if(i >= N || a >= N) continue;
+        errorif(c.size() < 5, "ActivityModelElectrolyteNRTL: henry entry needs [A, B, C, D, Vc].");
+        auto it = std::find_if(henry.begin(), henry.end(), [&](HenryGroup const& g){ return g.i == (int)i; });
+        if(it == henry.end()) { henry.push_back(HenryGroup{(int)i, -1, {}, {}}); it = henry.end() - 1; }
+        it->solv.push_back(HenrySolvent{(int)a, {c[0].val(), c[1].val(), c[2].val(), c[3].val()}, std::pow(c[4].val(), 2.0/3.0)});
+        if(a == iw) it->iW = (int)a;
+    }
+    for(auto& g : henry)
+    {
+        errorif(g.iW < 0, "ActivityModelElectrolyteNRTL: the henry rule of ", species[g.i].name(), " needs water among its solvents.");
+        for(auto const& [si, sk, nu] : params.henryderived)
+        {
+            auto i = species.findWithName(si), k = species.findWithName(sk);
+            if((int)i == g.i && k < N) g.derived.emplace_back((int)k, nu.val());
+        }
     }
 
     // Helpers (capture the constant matrices/maps)
@@ -360,6 +386,48 @@ auto createActivityModelElectrolyteNRTL(SpeciesList const& species, ActivityMode
         {
             if(i == (int)iw) ln_g[i] = lcg[i] + ln_gPDH[i];
             else ln_g[i] = (lcg[i] - lcinf[i]) + ln_gPDH[i] + ln_gBorn[i] + ln_xw;
+        }
+
+        // --- optional mixed-solvent Henry rule (see ActivityModelParamsElectrolyteNRTL::henry) ---
+        for(auto const& g : henry)
+        {
+            real sw = 0.0;
+            for(auto const& s : g.solv) sw += x[s.A]*s.vc23;
+            if(!(sw > 0.0)) continue;
+            auto tau = [&](int a, int b) { return tau_mm(a, b, T); };
+            auto lnH = [&](HenrySolvent const& s) { return s.lnH[0] + s.lnH[1]/T + s.lnH[2]*log(T) + s.lnH[3]*T; };
+            real ssum = 0.0, refW = 0.0;
+            for(auto const& s : g.solv)
+            {
+                const real tia = tau(g.i, s.A);
+                const real lng_inf = tau(s.A, g.i) + tia*exp(-alpha_mm(g.i, s.A, T)*tia);   // binary NRTL, i in A
+                ssum += x[s.A]*s.vc23/sw*(lnH(s) - lng_inf);
+                if(s.A == g.iW) refW = lnH(s) - lng_inf;
+            }
+            // ln gamma_inf of i in the salt-free solvent mixture (multicomponent NRTL over {solvents, i}, x_i -> 0)
+            const int ns = static_cast<int>(g.solv.size());
+            std::vector<int> idx; for(auto const& s : g.solv) idx.push_back(s.A); idx.push_back(g.i);
+            std::vector<real> xs(ns + 1, real(0.0)); real xt = 0.0;
+            for(int k = 0; k < ns; ++k) { xs[k] = x[idx[k]]; xt += xs[k]; }
+            for(int k = 0; k < ns; ++k) xs[k] /= xt;
+            auto G = [&](int a, int b) { return exp(-alpha_mm(idx[a], idx[b], T)*tau(idx[a], idx[b])); };
+            auto t = [&](int a, int b) { return tau(idx[a], idx[b]); };
+            const int ii = ns;
+            real num = 0.0, den = 0.0;
+            for(int j = 0; j <= ns; ++j) { num += xs[j]*t(j, ii)*G(j, ii); den += xs[j]*G(j, ii); }
+            real lnginf_mix = num/den;
+            for(int j = 0; j <= ns; ++j)
+            {
+                if(!(xs[j] > 0.0)) continue;
+                real dj = 0.0, nj = 0.0;
+                for(int k = 0; k <= ns; ++k) { dj += xs[k]*G(k, j); nj += xs[k]*t(k, j)*G(k, j); }
+                lnginf_mix += xs[j]*G(ii, j)/dj*(t(ii, j) - nj/dj);
+            }
+            HenrySolvent const* sW = nullptr; for(auto const& s : g.solv) if(s.A == g.iW) sW = &s;
+            const real delta = ssum - refW;
+            const real delta2 = ssum + lnginf_mix - lnH(*sW);
+            ln_g[g.i] += delta;
+            for(auto const& [k, nu] : g.derived) ln_g[k] += nu*delta2;
         }
         props.ln_g = ln_g;
 

@@ -212,6 +212,8 @@ REAKTORO_DATA_ENCODE_DEFINE(ActivityModelParamsElectrolyteNRTL)
     for(auto const& [s, v] : obj.dielectric)   data["dielectric"][s] = v;
     for(auto const& [s, r] : obj.bornradius)   data["bornradius"][s] = r.val();
     for(auto const& [s, v] : obj.molarvolume)  data["molarvolume"][s] = v;
+    for(auto const& [i, a, v] : obj.henry)     data["henry"][i][a] = v;
+    for(auto const& [i, k, n] : obj.henryderived) data["henryderived"][i][k] = n.val();
 }
 
 REAKTORO_DATA_DECODE_DEFINE(ActivityModelParamsElectrolyteNRTL)
@@ -243,6 +245,16 @@ REAKTORO_DATA_DECODE_DEFINE(ActivityModelParamsElectrolyteNRTL)
     if(data.exists("molarvolume"))
         for(auto const& [s, vals] : data["molarvolume"].asDict())
             obj.molarvolume.push_back(Tuple<String, Vec<real>>{ s, vals });
+
+    if(data.exists("henry"))
+        for(auto const& [i, child] : data["henry"].asDict())
+            for(auto const& [a, vals] : child.asDict())
+                obj.henry.push_back(Tuple<String, String, Vec<real>>{ i, a, vals });
+
+    if(data.exists("henryderived"))
+        for(auto const& [i, child] : data["henryderived"].asDict())
+            for(auto const& [k, v] : child.asDict())
+                obj.henryderived.push_back(Tuple<String, String, real>{ i, k, v.asFloat() });
 }
 
 } // namespace Reaktoro
